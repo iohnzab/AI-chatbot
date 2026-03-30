@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aria — AI Chatbot</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f5f5f3;
+    color: #1a1a1a;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 680px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-left: 1px solid #e8e8e5;
+    border-right: 1px solid #e8e8e5;
+  }
+
+  /* Header */
+  .header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid #f0f0ed;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 12px; }
+
+  .avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: #1a1a1a;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 600; color: #fff;
+    letter-spacing: -0.5px;
+  }
+
+  .header-info h1 {
+    font-size: 15px; font-weight: 600; color: #1a1a1a; line-height: 1.2;
+  }
+
+  .status {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px; color: #888;
+  }
+
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #22c55e;
+  }
+
+  .stats-bar {
+    font-size: 11px; color: #bbb;
+    background: #f9f9f7;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid #eeeeeb;
+  }
+
+  /* Messages */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 24px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    scroll-behavior: smooth;
+  }
+
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-track { background: transparent; }
+  .messages::-webkit-scrollbar-thumb { background: #e0e0dc; border-radius: 4px; }
+
+  .message { display: flex; flex-direction: column; gap: 4px; }
+  .message.user { align-items: flex-end; }
+  .message.ai { align-items: flex-start; }
+
+  .bubble {
+    max-width: 78%;
+    padding: 11px 15px;
+    border-radius: 18px;
+    font-size: 14px;
+    line-height: 1.6;
+    word-break: break-word;
+  }
+
+  .message.user .bubble {
+    background: #1a1a1a;
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+
+  .message.ai .bubble {
+    background: #f5f5f3;
+    color: #1a1a1a;
+    border-bottom-left-radius: 4px;
+    border: 1px solid #eeeeeb;
+  }
+
+  .msg-time {
+    font-size: 11px;
+    color: #c0c0bb;
+    padding: 0 4px;
+  }
+
+  /* Feedback buttons */
+  .feedback {
+    display: flex; gap: 6px; padding: 0 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .message.ai:hover .feedback { opacity: 1; }
+
+  .fb-btn {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid #e0e0dc;
+    background: #fff;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .fb-btn:hover { border-color: #1a1a1a; color: #1a1a1a; }
+  .fb-btn.good:hover { border-color: #22c55e; color: #22c55e; }
+  .fb-btn.bad:hover { border-color: #ef4444; color: #ef4444; }
+
+  /* Typing indicator */
+  .typing .bubble {
+    display: flex; align-items: center; gap: 4px;
+    padding: 14px 18px;
+  }
+
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #bbb;
+    animation: bounce 1.2s infinite;
+  }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes bounce {
+    0%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-5px); }
+  }
+
+  /* Teach modal */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: #fff;
+    border-radius: 16px;
+    padding: 28px;
+    width: 90%; max-width: 420px;
+    border: 1px solid #e8e8e5;
+  }
+
+  .modal h2 {
+    font-size: 16px; font-weight: 600; margin-bottom: 6px;
+  }
+
+  .modal p {
+    font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.5;
+  }
+
+  .modal label {
+    font-size: 12px; font-weight: 500; color: #555;
+    display: block; margin-bottom: 6px;
+  }
+
+  .modal input {
+    width: 100%; padding: 10px 14px;
+    border: 1px solid #e0e0dc;
+    border-radius: 10px;
+    font-size: 14px; color: #1a1a1a;
+    margin-bottom: 14px;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.15s;
+  }
+
+  .modal input:focus { border-color: #1a1a1a; }
+
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+  .btn-cancel {
+    padding: 9px 18px; border-radius: 10px;
+    border: 1px solid #e0e0dc; background: #fff;
+    font-size: 13px; color: #888; cursor: pointer;
+    font-family: inherit;
+  }
+
+  .btn-teach {
+    padding: 9px 18px; border-radius: 10px;
+    border: none; background: #1a1a1a;
+    font-size: 13px; color: #fff; cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+
+  .btn-teach:hover { background: #333; }
+
+  /* Correct reply modal */
+  .correct-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .correct-overlay.open { display: flex; }
+
+  /* Input area */
+  .input-area {
+    padding: 16px 24px 20px;
+    border-top: 1px solid #f0f0ed;
+  }
+
+  .input-row {
+    display: flex; gap: 10px; align-items: flex-end;
+  }
+
+  .input-wrap {
+    flex: 1;
+    background: #f5f5f3;
+    border-radius: 24px;
+    border: 1px solid #e8e8e5;
+    display: flex; align-items: center;
+    padding: 0 16px;
+    transition: border-color 0.15s;
+  }
+
+  .input-wrap:focus-within { border-color: #1a1a1a; background: #fff; }
+
+  .msg-input {
+    flex: 1; border: none; background: transparent;
+    font-size: 14px; color: #1a1a1a; padding: 12px 0;
+    outline: none; font-family: inherit;
+    resize: none; max-height: 120px; line-height: 1.5;
+  }
+
+  .msg-input::placeholder { color: #bbb; }
+
+  .teach-trigger {
+    font-size: 11px; color: #bbb; padding: 4px 8px;
+    border-radius: 12px; cursor: pointer;
+    border: 1px solid transparent;
+    background: transparent;
+    transition: all 0.15s;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+
+  .teach-trigger:hover { border-color: #e0e0dc; color: #888; }
+
+  .send-btn {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: #1a1a1a; border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  .send-btn:hover { background: #333; }
+  .send-btn:active { transform: scale(0.95); }
+
+  .send-btn svg { fill: #fff; }
+
+  /* Welcome */
+  .welcome {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    flex: 1; gap: 12px; text-align: center;
+    padding: 24px;
+    color: #bbb;
+  }
+
+  .welcome-icon {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: #f5f5f3; border: 1px solid #e8e8e5;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; margin-bottom: 4px;
+  }
+
+  .welcome h2 { font-size: 16px; font-weight: 500; color: #888; }
+  .welcome p { font-size: 13px; color: #bbb; line-height: 1.6; max-width: 280px; }
+
+  .suggestions {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    justify-content: center; margin-top: 8px;
+  }
+
+  .suggestion {
+    font-size: 12px; padding: 7px 14px;
+    border-radius: 20px;
+    border: 1px solid #e0e0dc;
+    background: #fff;
+    color: #555; cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .suggestion:hover { border-color: #1a1a1a; color: #1a1a1a; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1a1a1a; color: #fff;
+    padding: 10px 20px; border-radius: 20px;
+    font-size: 13px; z-index: 200;
+    opacity: 0; transition: opacity 0.3s;
+    pointer-events: none;
+  }
+
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="avatar">A</div>
+      <div class="header-info">
+        <h1>Aria</h1>
+        <div class="status">
+          <div class="status-dot"></div>
+          <span>Online</span>
+        </div>
+      </div>
+    </div>
+    <div class="stats-bar" id="stats-bar">loading...</div>
+  </div>
+
+  <!-- Messages -->
+  <div class="messages" id="messages">
+    <div class="welcome" id="welcome">
+      <div class="welcome-icon">🧠</div>
+      <h2>Hi, I'm Aria</h2>
+      <p>Your AI built from scratch. The more you teach me, the smarter I get!</p>
+      <div class="suggestions">
+        <div class="suggestion" onclick="suggest('hello')">Say hello</div>
+        <div class="suggestion" onclick="suggest('how are you')">How are you?</div>
+        <div class="suggestion" onclick="suggest('what is ai')">What is AI?</div>
+        <div class="suggestion" onclick="suggest('tell me a joke')">Tell me a joke</div>
+        <div class="suggestion" onclick="suggest('what is your name')">Your name?</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-area">
+    <div class="input-row">
+      <div class="input-wrap">
+        <textarea class="msg-input" id="msg-input" placeholder="Message Aria..." rows="1"
+          onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="teach-trigger" onclick="openTeach()">+ Teach</button>
+      </div>
+      <button class="send-btn" onclick="sendMessage()">
+        <svg width="18" height="18" viewBox="0 0 24 24">
+          <path d="M2 21l21-9L2 3v7l15 2-15 2z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Teach Modal -->
+<div class="modal-overlay" id="teach-modal">
+  <div class="modal">
+    <h2>Teach Aria something new</h2>
+    <p>Aria will learn this permanently and remember it next time.</p>
+    <label>When someone says...</label>
+    <input type="text" id="teach-q" placeholder="e.g. what is python" />
+    <label>Aria should reply...</label>
+    <input type="text" id="teach-a" placeholder="e.g. python is a programming language" />
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeTeach()">Cancel</button>
+      <button class="btn-teach" onclick="submitTeach()">Teach Aria</button>
+    </div>
+  </div>
+</div>
+
+<!-- Correct Reply Modal -->
+<div class="correct-overlay modal-overlay" id="correct-modal">
+  <div class="modal">
+    <h2>Correct Aria's reply</h2>
+    <p>What should Aria have said? She'll remember this forever.</p>
+    <label>Better reply...</label>
+    <input type="text" id="correct-input" placeholder="Type the correct reply..." />
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeCorrect()">Cancel</button>
+      <button class="btn-teach" onclick="submitCorrect()">Teach Aria</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API = "http://localhost:8000"
+  let lastUserMsg = ""
+  let lastAiReply = ""
+  let pendingCorrection = null
+  let hasMessages = false
+
+  async function loadStats() {
+    try {
+      const res = await fetch(`${API}/stats`)
+      const data = await res.json()
+      document.getElementById("stats-bar").textContent =
+        `${data.vocab_size} words · ${data.learned_pairs} taught`
+    } catch {
+      document.getElementById("stats-bar").textContent = "offline"
+    }
+  }
+
+  function getTime() {
+    return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  }
+
+  function autoResize(el) {
+    el.style.height = "auto"
+    el.style.height = Math.min(el.scrollHeight, 120) + "px"
+  }
+
+  function handleKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage()
+    }
+  }
+
+  function suggest(text) {
+    document.getElementById("msg-input").value = text
+    sendMessage()
+  }
+
+  function hideWelcome() {
+    if (!hasMessages) {
+      document.getElementById("welcome").style.display = "none"
+      hasMessages = true
+    }
+  }
+
+  function addMessage(role, text, showFeedback = false, userMsg = "") {
+    hideWelcome()
+    const msgs = document.getElementById("messages")
+    const div = document.createElement("div")
+    div.className = `message ${role}`
+
+    const bubble = document.createElement("div")
+    bubble.className = "bubble"
+    bubble.textContent = text
+
+    const time = document.createElement("div")
+    time.className = "msg-time"
+    time.textContent = getTime()
+
+    div.appendChild(bubble)
+    div.appendChild(time)
+
+    if (role === "ai" && showFeedback) {
+      const fb = document.createElement("div")
+      fb.className = "feedback"
+
+      const good = document.createElement("button")
+      good.className = "fb-btn good"
+      good.textContent = "Good reply"
+      good.onclick = () => {
+        sendFeedback(userMsg, text, true)
+        fb.remove()
+        showToast("Aria reinforced this reply!")
+      }
+
+      const bad = document.createElement("button")
+      bad.className = "fb-btn bad"
+      bad.textContent = "Correct it"
+      bad.onclick = () => {
+        pendingCorrection = { userMsg, aiReply: text }
+        document.getElementById("correct-input").value = ""
+        document.getElementById("correct-modal").classList.add("open")
+        fb.remove()
+      }
+
+      fb.appendChild(good)
+      fb.appendChild(bad)
+      div.appendChild(fb)
+    }
+
+    msgs.appendChild(div)
+    msgs.scrollTop = msgs.scrollHeight
+    return div
+  }
+
+  function addTyping() {
+    hideWelcome()
+    const msgs = document.getElementById("messages")
+    const div = document.createElement("div")
+    div.className = "message ai typing"
+    div.innerHTML = `<div class="bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`
+    msgs.appendChild(div)
+    msgs.scrollTop = msgs.scrollHeight
+    return div
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById("msg-input")
+    const text = input.value.trim()
+    if (!text) return
+
+    input.value = ""
+    input.style.height = "auto"
+    lastUserMsg = text
+
+    addMessage("user", text)
+    const typing = addTyping()
+
+    try {
+      const res = await fetch(`${API}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text })
+      })
+      const data = await res.json()
+      lastAiReply = data.reply
+      typing.remove()
+      addMessage("ai", data.reply, true, text)
+    } catch {
+      typing.remove()
+      addMessage("ai", "Connection error — make sure server.py is running!")
+    }
+
+    loadStats()
+  }
+
+  async function sendFeedback(userMsg, aiReply, good) {
+    await fetch(`${API}/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_input: userMsg, ai_reply: aiReply, good })
+    })
+    loadStats()
+  }
+
+  function openTeach() {
+    document.getElementById("teach-q").value = ""
+    document.getElementById("teach-a").value = ""
+    document.getElementById("teach-modal").classList.add("open")
+  }
+
+  function closeTeach() {
+    document.getElementById("teach-modal").classList.remove("open")
+  }
+
+  async function submitTeach() {
+    const q = document.getElementById("teach-q").value.trim()
+    const a = document.getElementById("teach-a").value.trim()
+    if (!q || !a) return
+    closeTeach()
+    showToast("Teaching Aria... this takes a moment")
+    await fetch(`${API}/teach`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_input: q, correct_reply: a })
+    })
+    showToast("Aria learned it!")
+    loadStats()
+  }
+
+  function closeCorrect() {
+    document.getElementById("correct-modal").classList.remove("open")
+    pendingCorrection = null
+  }
+
+  async function submitCorrect() {
+    const reply = document.getElementById("correct-input").value.trim()
+    if (!reply || !pendingCorrection) return
+    closeCorrect()
+    showToast("Teaching Aria the correct reply...")
+    await fetch(`${API}/teach`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_input: pendingCorrection.userMsg, correct_reply: reply })
+    })
+    showToast("Aria learned the correct reply!")
+    loadStats()
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById("toast")
+    t.textContent = msg
+    t.classList.add("show")
+    setTimeout(() => t.classList.remove("show"), 2500)
+  }
+
+  loadStats()
+  document.getElementById("msg-input").focus()
+</script>
+</body>
+</html>
