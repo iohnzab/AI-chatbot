@@ -429,8 +429,8 @@ print(f"📚 Total pairs to train on: {len(all_pairs)}\n")
 
 # Train
 np.random.seed(42)
-model = LSTMChatbot(vocab_size=vocab_size, hidden_size=256, lr=0.005)
-model.train(all_pairs, epochs=2000, label="Training smart brain")
+model = LSTMChatbot(vocab_size=vocab_size, hidden_size=64, lr=0.01)
+model.train(all_pairs, epochs=300, label="Training smart brain")
 
 # Save
 model.save(BRAIN)
